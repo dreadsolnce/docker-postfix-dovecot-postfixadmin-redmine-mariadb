@@ -17,6 +17,7 @@
 
 # Установка
 + Clone the repo.
++ mv .env.example .env
 + Запустите `docker-compose up -d` для запуска контейнеров.
 
 # Используемы images:
