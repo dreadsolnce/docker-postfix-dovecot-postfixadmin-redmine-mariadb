@@ -1,0 +1,6 @@
+user = DB_USERNAME
+password = DB_PASSWORD
+hosts = DB_HOST
+dbname = DB_DATABASE
+query = SELECT CONCAT('/home/mail/',LCASE(`domain`),'/',LCASE(`username`)) FROM mailbox WHERE username="%s";
+

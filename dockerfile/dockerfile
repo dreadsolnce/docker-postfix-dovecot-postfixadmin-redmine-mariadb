@@ -1,0 +1,83 @@
+FROM debian:latest
+
+ARG POSTFIX_HOST_NAME
+ARG POSTFIX_DOMAIN_NAME
+ARG POSTFIX_NETWORKS
+ARG POSTFIX_MAIL_DIR
+ARG DB_USERNAME
+ARG DB_PASSWORD
+ARG DB_HOST
+ARG DB_DATABASE
+
+# installation
+RUN echo "postfix postfix/main_mailer_type string Internet site" > postfix_silent_install.txt \
+ && echo "postfix postfix/mailname string mail.${DomainName}" >> postfix_silent_install.txt \
+ && debconf-set-selections postfix_silent_install.txt
+
+RUN apt-get update
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -q -y \
+ postfix \
+ dovecot-common \
+ dovecot-imapd \
+ dovecot-pop3d \
+ nano \
+ vim \
+ rsyslog \
+ postfix-mysql \
+ dovecot-mysql \
+ mailutils
+# create account
+RUN mkdir /home/mail ; \
+groupadd -g 1024 vmail ; \
+useradd -d /home/mail/ -g 1024 -u 1024 vmail ; \
+usermod -a -G dovecot vmail ; \
+chown vmail:vmail /home/mail ; \
+usermod  -aG dovecot postfix
+
+# configuring Postfix
+ADD ./postfix/main.cf /etc/postfix/main.cf
+RUN postconf -e "myhostname = ${POSTFIX_HOST_NAME}.${POSTFIX_DOMAIN_NAME}" \
+&& postconf -e "mydomain = ${POSTFIX_DOMAIN_NAME}" \
+&& postconf -e 'myorigin = $mydomain' \
+&& postconf -e "mynetworks = ${POSTFIX_NETWORKS}, 127.0.0.0/8" \
+&& postconf -e "virtual_mailbox_base = ${POSTFIX_MAIL_DIR}"
+
+ADD ./postfix/master.cf /etc/postfix/master.cf
+
+ADD ./postfix/mysql_virtual_alias_maps.cf /etc/postfix/mysql_virtual_alias_maps.cf
+RUN sed -i "s/DB_USERNAME/${DB_USERNAME}/g" /etc/postfix/mysql_virtual_alias_maps.cf ; \
+sed -i "s/DB_PASSWORD/${DB_PASSWORD}/g" /etc/postfix/mysql_virtual_alias_maps.cf ; \
+sed -i "s/DB_HOST/${DB_HOST}/g" /etc/postfix/mysql_virtual_alias_maps.cf ; \
+sed -i "s/DB_DATABASE/${DB_DATABASE}/g" /etc/postfix/mysql_virtual_alias_maps.cf
+
+ADD ./postfix/mysql_virtual_domains_maps.cf /etc/postfix/mysql_virtual_domains_maps.cf
+RUN sed -i "s/DB_USERNAME/${DB_USERNAME}/g" /etc/postfix/mysql_virtual_domains_maps.cf ; \
+sed -i "s/DB_PASSWORD/${DB_PASSWORD}/g" /etc/postfix/mysql_virtual_domains_maps.cf ; \
+sed -i "s/DB_HOST/${DB_HOST}/g" /etc/postfix/mysql_virtual_domains_maps.cf ; \
+sed -i "s/DB_DATABASE/${DB_DATABASE}/g" /etc/postfix/mysql_virtual_domains_maps.cf
+
+ADD ./postfix/mysql_virtual_mailbox_maps.cf /etc/postfix/mysql_virtual_mailbox_maps.cf
+RUN sed -i "s/DB_USERNAME/${DB_USERNAME}/g" /etc/postfix/mysql_virtual_mailbox_maps.cf ; \
+sed -i "s/DB_PASSWORD/${DB_PASSWORD}/g" /etc/postfix/mysql_virtual_mailbox_maps.cf ; \
+sed -i "s/DB_HOST/${DB_HOST}/g" /etc/postfix/mysql_virtual_mailbox_maps.cf ; \
+sed -i "s/DB_DATABASE/${DB_DATABASE}/g" /etc/postfix/mysql_virtual_mailbox_maps.cf
+
+# configuring Dovecot
+ADD ./dovecot/sql.conf /etc/dovecot/sql.conf
+RUN sed -i "s/DB_HOST/${DB_HOST}/g" /etc/dovecot/sql.conf ; \
+sed -i "s/DB_DATABASE/${DB_DATABASE}/g" /etc/dovecot/sql.conf ; \
+sed -i "s/DB_USERNAME/${DB_USERNAME}/g" /etc/dovecot/sql.conf ; \
+sed -i "s/DB_PASSWORD/${DB_PASSWORD}/g" /etc/dovecot/sql.conf
+#
+ARG DOVECOT_LOG
+ADD ./dovecot/10-logging.conf /etc/dovecot/conf.d/10-logging.conf
+RUN if [ ${DOVECOT_LOG} = "no" ]; then rm -f /etc/dovecot/conf.d/10-logging.conf; fi
+
+# configuring Dovecot
+#ADD dovecot.conf /etc/dovecot/dovecot.conf
+
+RUN service postfix stop ; service dovecot stop
+
+EXPOSE 25 143 110
+
+CMD ["sh", "-c", "service postfix start ; service dovecot start ; service rsyslog start ; tail -f /dev/null"]

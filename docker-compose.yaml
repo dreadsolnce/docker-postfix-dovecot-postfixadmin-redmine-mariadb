@@ -1,0 +1,113 @@
+services:
+
+  mariadb:
+    image: mariadb:10.6
+    container_name: mariadb
+    hostname: mariadb
+    environment:
+        - MARIADB_USER=${DB_USERNAME}
+        - MARIADB_PASSWORD=${DB_PASSWORD}
+        - MARIADB_DATABASE=${DB_DATABASE}
+        - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+        - MARIADB_AUTO_UPGRADE=1
+    volumes:
+        - ./data/mariadb:/var/lib/mysql
+    networks:
+      net:
+        ipv4_address: 172.28.1.2
+    command:
+        - mariadbd
+        - --transaction-isolation=READ-COMMITTED
+        - --character-set-server=utf8mb4
+        - --collation-server=utf8mb4_unicode_ci
+
+  redmine:
+    image: redmine:6.0.1
+    container_name: redmine
+    hostname: redmine
+    environment:
+      - REDMINE_DB_MYSQL=${DB_HOST}
+      - REDMINE_DB_USERNAME=${DB_USERNAME}
+      - REDMINE_DB_PASSWORD=${DB_PASSWORD}
+      - REDMINE_DB_PORT=${DB_PORT}
+      - REDMINE_DB_DATABASE=${DB_DATABASE}
+    depends_on:
+      - mariadb
+    restart: always
+    ports:
+      - 81:3000
+    networks:
+      net:
+        ipv4_address: 172.28.1.3
+    volumes:
+      - ./cfg/redmine/configuration.yml:/usr/src/redmine/config/configuration.yml
+
+  postfixadmin:
+    image: postfixadmin:3.3
+    container_name: postfixadmin
+    hostname: postfixadmin
+    environment:
+      - POSTFIXADMIN_DB_TYPE=${DB_CONNECTION}
+      - POSTFIXADMIN_DB_PORT=${DB_PORT}
+      - POSTFIXADMIN_DB_HOST=${DB_HOST}
+      - POSTFIXADMIN_DB_USER=${DB_USERNAME}
+      - POSTFIXADMIN_DB_PASSWORD=${DB_PASSWORD}
+      - POSTFIXADMIN_DB_NAME=${DB_DATABASE}
+      - POSTFIXADMIN_SETUP_PASSWORD=${HASH_SETUP_PASSWORD}
+      - POSTFIXADMIN_SMTP_SERVER=postfix
+      - POSTFIXADMIN_SMTP_PORT=25
+    depends_on:
+      - mariadb
+    restart: always
+    volumes:
+      - ./cfg/postfixadmin/config.inc.php:/var/www/html/config.inc.php
+    ports:
+      - "82:80"
+    networks:
+      net:
+        ipv4_address: 172.28.1.4
+
+  postfix:
+    build:
+      context: ./dockerfile/
+      args:
+        - POSTFIX_HOST_NAME=${POSTFIX_HOST_NAME}
+        - POSTFIX_DOMAIN_NAME=${POSTFIX_DOMAIN_NAME}
+        - POSTFIX_NETWORKS=${POSTFIX_NETWORKS}
+        - POSTFIX_MAIL_DIR=${POSTFIX_MAIL_DIR}
+        - DB_USERNAME=${DB_USERNAME}
+        - DB_PASSWORD=${DB_PASSWORD}
+        - DB_HOST=${DB_HOST}
+        - DB_DATABASE=${DB_DATABASE}
+        - DOVECOT_LOG=${DOVECOT_LOG}
+    container_name: postfix
+    hostname: ${POSTFIX_HOST_NAME}.${POSTFIX_DOMAIN_NAME}
+    restart: always
+    volumes:
+      - ./cfg/dovecot/dovecot.conf:/etc/dovecot/dovecot.conf
+      - ./cfg/dovecot/10-auth.conf:/etc/dovecot/conf.d/10-auth.conf
+      - ./cfg/dovecot/10-mail.conf:/etc/dovecot/conf.d/10-mail.conf
+      - ./cfg/dovecot/10-master.conf:/etc/dovecot/conf.d/10-master.conf
+      - ./cfg/dovecot/10-ssl.conf:/etc/dovecot/conf.d/10-ssl.conf
+      - ./cfg/dovecot/15-lda.conf:/etc/dovecot/conf.d/15-lda.conf
+      - ./cfg/dovecot/auth-sql.conf.ext:/etc/dovecot/conf.d/auth-sql.conf.ext
+      - data_mail:/home/mail/
+    ports:
+      - "25:25"
+      - "143:143"
+      - "110:110"
+    networks:
+      net:
+        ipv4_address: 172.28.1.5
+
+volumes:
+  data_mail:
+    name: vmail
+
+networks:
+  net:
+    name: net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

@@ -1,0 +1,6 @@
+user = user_db
+password = secret
+hosts = mariadb
+dbname = db_redmine
+query = SELECT domain FROM domain WHERE domain="%u";
+
