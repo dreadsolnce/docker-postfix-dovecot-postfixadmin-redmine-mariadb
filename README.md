@@ -93,12 +93,18 @@
       >     Фамилия: Adminov
       >     Email: petrov@example.local
       `Нажать кнопку [Сохранить]`
+    - перейти во вкладку Администрирование
+      - загрузить конфигурацию по умолчанию
+      - настройки -> уведомления по email
+      - послать email для проверки
+    - открыть почтовый клиент thunderbird и убудиться, что проверочное пришло доставлено
+      
 # Используемы images:
-+ redis:alpine
-+ postgres:9.5-alpine
-+ rabbitmq:3-management-alpine
-+ nginx:alpine
-+ php:8.2-fpm
++ mariadb:10.6
++ redmine:6.0.1
++ postfixadmin:3.3
++ debian:latest
+
 
 
 
