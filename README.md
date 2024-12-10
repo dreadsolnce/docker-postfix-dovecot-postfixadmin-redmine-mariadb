@@ -16,9 +16,13 @@
 * docker-compose.yml - основной файл с используемыми сервисами.
 
 # Установка
-+ Clone the repo.
++ clone the repo.
 + mv .env.example .env
-+ Запустите `docker-compose up -d` для запуска контейнеров.
++ запустите `docker-compose up -d` для запуска контейнеров.
++ создать почтовый ящик через программу postfixadmin:
++ - http://127.0.0.1:82/setup.php
++ - - сформировать хэш пароля установки, для этого ввести и повторить пароль и нажать кнопку <Generate setup_password hash>
++ - - скопировать полученный хэш и вставить в файл .env (переменная HASH_SETUP_PASSWORD)
 
 # Используемы images:
 + redis:alpine
